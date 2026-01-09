@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Web Mewarnai Anak</title>
+
+<style>
+body{margin:0;font-family:Arial;background:#fef6e4;text-align:center}
+.page{display:none;height:100vh}
+.active{display:flex;flex-direction:column;align-items:center;justify-content:center}
+.play-btn{width:160px;height:160px;border-radius:50%;background:#ff7aa2;color:#fff;font-size:60px;border:none}
+.gallery img{width:120px;margin:10px;border:4px solid #333;border-radius:15px}
+canvas{border:3px solid black;background:#fff;touch-action:none}
+.toolbar button,.toolbar input{margin:4px;padding:8px}
+.sticker-bar img{width:50px;margin:5px;cursor:pointer}
+.finish-box{position:absolute;top:10px;right:10px;background:#fff3cd;padding:10px;border-radius:10px;display:none}
+.score{font-size:40px;color:red;font-weight:bold}
+.saved img{width:80px;margin:5px;border:2px solid #333}
+</style>
+</head>
+
+<body>
+
+<audio id="musik" src="musik.mp3" loop></audio>
+<audio id="sPaint" src="sound/paint.mp3"></audio>
+<audio id="sFinish" src="sound/finish.mp3"></audio>
+
+<!-- HOME -->
+<div id="home" class="page active">
+  <button class="play-btn" onclick="start()">▶</button>
+</div>
+
+<!-- PILIH GAMBAR -->
+<div id="select" class="page">
+  <h2>Pilih Gambar</h2>
+  <div class="gallery">
+    <img src="gambar/gajah.png" onclick="loadImage(this.src)">
+    <img src="gambar/singa.png" onclick="loadImage(this.src)">
+    <img src="gambar/pesta.png" onclick="loadImage(this.src)">
+    <img src="gambar/hutan1.png" onclick="loadImage(this.src)">
+    <img src="gambar/hutan2.png" onclick="loadImage(this.src)">
+  </div>
+
+  <h3>Galeri Anak 🎨</h3>
+  <div id="saved" class="saved"></div>
+</div>
+
+<!-- MENGGAMBAR -->
+<div id="draw" class="page">
+  <div class="toolbar">
+    🎨 <input type="color" id="color" value="#ff0000">
+    <button onclick="mode='draw'">🖌️</button>
+    <button onclick="mode='fill'">🪣</button>
+    <button onclick="undo()">↩️</button>
+    <button onclick="resetCanvas()">🗑️</button>
+    <button onclick="finish()">✔️</button>
+    <button onclick="back()">❌</button>
+    <button onclick="download()">💾</button>
+  </div>
+
+  <!-- STIKER -->
+  <div class="sticker-bar">
+    <img src="stiker/bintang.png" onclick="addSticker(this.src)">
+    <img src="stiker/hati.png" onclick="addSticker(this.src)">
+    <img src="stiker/senyum.png" onclick="addSticker(this.src)">
+    <img src="stiker/pelangi.png" onclick="addSticker(this.src)">
+  </div>
+
+  <canvas id="canvas" width="320" height="480"></canvas>
+
+  <div class="finish-box" id="finishBox">
+    🎉 Selamat gambar kamu selesai!!
+    <div class="score">100</div>
+    ⭐⭐⭐
+  </div>
+</div>
+
+<script>
+let canvas=canvas||document.getElementById("canvas"),
+ctx=canvas.getContext("2d"),
+drawing=false,mode="fill",history=[],baseImage=new Image();
+
+function start(){home.classList.remove("active");select.classList.add("active");musik.play();loadSaved();}
+function loadImage(src){select.classList.remove("active");draw.classList.add("active");baseImage.src=src;baseImage.onload=drawBase;}
+function drawBase(){ctx.clearRect(0,0,canvas.width,canvas.height);ctx.drawImage(baseImage,0,0,canvas.width,canvas.height);save();}
+canvas.onmousedown=()=>drawing=true;
+canvas.onmouseup=()=>drawing=false;
+canvas.onmousemove=e=>{if(drawing&&mode=="draw"){ctx.fillStyle=color.value;ctx.beginPath();ctx.arc(e.offsetX,e.offsetY,6,0,Math.PI*2);ctx.fill();sPaint.play();}};
+canvas.onclick=e=>{if(mode!="fill")return;floodFill(e.offsetX,e.offsetY,hex(color.value));sPaint.play();};
+
+function hex(h){h=h.replace("#","");let n=parseInt(h,16);return[(n>>16)&255,(n>>8)&255,n&255,255];}
+function floodFill(x,y,f){let img=ctx.getImageData(0,0,canvas.width,canvas.height),d=img.data,w=canvas.width;
+let i=(y*w+x)*4,t=d.slice(i,i+4),s=[[x,y]];
+while(s.length){let[p,q]=s.pop(),j=(q*w+p)*4;
+if(p<0||q<0||p>=w||q>=canvas.height)continue;
+if(d[j]!=t[0]||d[j+1]!=t[1]||d[j+2]!=t[2])continue;
+d[j]=f[0];d[j+1]=f[1];d[j+2]=f[2];d[j+3]=255;
+s.push([p+1,q],[p-1,q],[p,q+1],[p,q-1]);}
+ctx.putImageData(img,0,0);save();}
+
+function save(){history.push(canvas.toDataURL());}
+function undo(){if(history.length>1){history.pop();let i=new Image();i.src=history.at(-1);i.onload=()=>ctx.drawImage(i,0,0);}}
+function resetCanvas(){drawBase();}
+function addSticker(src){let i=new Image();i.src=src;i.onload=()=>ctx.drawImage(i,120,200,60,60);save();}
+function finish(){finishBox.style.display="block";sFinish.play();saveToGallery();}
+function saveToGallery(){let g=JSON.parse(localStorage.getItem("gallery")||"[]");g.push(canvas.toDataURL());localStorage.setItem("gallery",JSON.stringify(g));}
+function loadSaved(){let g=JSON.parse(localStorage.getItem("gallery")||"[]");saved.innerHTML="";g.forEach(img=>{let i=new Image();i.src=img;saved.appendChild(i);});}
+function back(){location.reload();}
+function download(){let a=document.createElement("a");a.download="gambar-anak.png";a.href=canvas.toDataURL();a.click();}
+</script>
+
+</body>
+</html>
